@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabaseClient';
 
+export const dynamic = 'force-dynamic';
 export async function GET() {
   try {
     // Categories மற்றும் அதனோடு சேர்ந்த Menu Items இரண்டையும் பெறுகிறோம்
