@@ -1,35 +1,33 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabaseClient';
+import { createClient } from '@supabase/supabase-js';
 
+// Prevent Vercel Caching issues
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
-    // Categories மற்றும் Menu Items இரண்டையும் தனித்தனியாக Fetch செய்கிறோம்
-    const { data: categories, error: catError } = await supabase
-      .from('categories')
-      .select('*');
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-    const { data: items, error: itemError } = await supabase
-      .from('menu_items')
-      .select('*');
-
-    if (catError || itemError) {
-      console.error('Supabase Error:', catError || itemError);
-      return NextResponse.json({ 
-        success: false, 
-        error: (catError || itemError)?.message 
-      }, { status: 500 });
+    if (!supabaseUrl || !supabaseKey) {
+      return NextResponse.json({ success: false, error: 'Supabase Env Keys Missing' }, { status: 500 });
     }
 
-    // Categories உடன் அதற்குரிய Items-ஐ இணைக்கிறோம்
-    const formattedData = categories.map((cat: any) => ({
-      ...cat,
-      menu_items: items.filter((item: any) => item.category_id === cat.id)
-    }));
+    const supabase = createClient(supabaseUrl, supabaseKey);
 
-    return NextResponse.json({ success: true, data: formattedData });
+    // Fetch categories with menu_items
+    const { data, error } = await supabase
+      .from('categories')
+      .select('*, menu_items(*)');
+
+    if (error) {
+      console.error('Supabase Error:', error);
+      return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ success: true, data });
   } catch (err: any) {
-    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+    console.error('API Error:', err);
+    return NextResponse.json({ success: false, error: err.message || 'Server Error' }, { status: 500 });
   }
 }
