@@ -2,10 +2,9 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "The Yard Milkshake Bar",
-  description: "Order over-the-top milkshakes & desserts!",
-  manifest: "/manifest.json",
-  themeColor: "#E0006C",
+  title: "Munch - Food Ordering App",
+  description: "Delicious food delivered to your table",
+  manifest: "/manifest.json", // 👈 இந்த வரியைச் சேர்க்கவும்
 };
 
 export default function RootLayout({
@@ -15,7 +14,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body className="antialiased bg-gray-50">{children}</body>
     </html>
   );
 }

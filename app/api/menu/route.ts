@@ -1,32 +1,19 @@
-import { NextResponse } from "next/server";
-
-const MENU_ITEMS = [
-  {
-    id: "1",
-    name: "The Dough Whole Jar",
-    category: "Specialty Shakes",
-    price: 16.99,
-    image: "https://images.unsplash.com/photo-1572490122747-3968b75cc699?w=500&auto=format&fit=crop",
-    description: "Cookie dough rim, chocolate drizzle, topped with a mini chocolate chip cookie setup."
-  },
-  {
-    id: "2",
-    name: "Unicorn Milkshake",
-    category: "Specialty Shakes",
-    price: 15.99,
-    image: "https://images.unsplash.com/photo-1553787499-6f9133860278?w=500&auto=format&fit=crop",
-    description: "Cotton candy drizzle, marshmallow cream, rainbow sprinkles."
-  },
-  {
-    id: "3",
-    name: "Edible Cookie Dough Scoop",
-    category: "Edible Dough",
-    price: 8.99,
-    image: "https://images.unsplash.com/photo-1587314168485-3236d6710814?w=500&auto=format&fit=crop",
-    description: "Safe to eat raw cookie dough with chocolate chips."
-  }
-];
+import { NextResponse } from 'next/server';
+import { supabase } from '@/lib/supabaseClient';
 
 export async function GET() {
-  return NextResponse.json(MENU_ITEMS);
+  try {
+    // Categories மற்றும் அதனோடு சேர்ந்த Menu Items இரண்டையும் பெறுகிறோம்
+    const { data, error } = await supabase
+      .from('categories')
+      .select('*, menu_items(*)');
+
+    if (error) {
+      return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ success: true, data });
+  } catch (err: any) {
+    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+  }
 }
