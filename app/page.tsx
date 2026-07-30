@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Swal from 'sweetalert2';
 
 interface MenuItem {
   id: string;
@@ -75,41 +76,71 @@ export default function HomePage() {
   const totalPrice = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
   // Place Order with Customer Details
+
   const handlePlaceOrder = async () => {
-    if (!customerName.trim() || !phoneNumber.trim()) {
-      alert('தயவுசெய்து உங்கள் பெயர் மற்றும் போன் நம்பரை பதிவிடவும்!');
-      return;
-    }
-
-    try {
-      const res = await fetch('/api/orders', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          total_amount: totalPrice,
-          items: cart,
-          customer_name: customerName,
-          phone_number: phoneNumber,
-        }),
-      });
-
-      const json = await res.json();
-
-      if (json.success) {
-        alert(`🎉 Order Placed Successfully!\nOrder ID: ${json.orderId}`);
-        setCart([]);
-        setCustomerName('');
-        setPhoneNumber('');
-        setIsCartOpen(false);
-      } else {
-        alert('Error placing order: ' + json.error);
+  if (!customerName.trim() || !phoneNumber.trim()) {
+    Swal.fire({
+      title: 'Hold on a second! 🙈',
+      text: 'Please enter your name and phone number so we know where to deliver!',
+      icon: 'warning',
+      confirmButtonText: 'Got it! 👍',
+      confirmButtonColor: '#ff6b6b',
+      background: '#fff5f5',
+      customClass: {
+        popup: 'rounded-3xl shadow-xl',
       }
-    } catch (err) {
-      console.error(err);
-      alert('Something went wrong!');
-    }
-  };
+    });
+    return;
+  }
 
+  try {
+    const res = await fetch('/api/orders', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        total_amount: totalPrice,
+        items: cart,
+        customer_name: customerName,
+        phone_number: phoneNumber,
+      }),
+    });
+
+    const json = await res.json();
+
+    if (json.success) {
+      Swal.fire({
+        title: 'Yummy choice! 🍕✨',
+        text: `Your order has been placed successfully! Order ID: ${json.orderId}`,
+        icon: 'success',
+        confirmButtonText: 'Awesome! 😍',
+        confirmButtonColor: '#ff6b6b',
+        background: '#fff5f5',
+        customClass: {
+          popup: 'rounded-3xl shadow-xl',
+        }
+      });
+      setCart([]);
+      setCustomerName('');
+      setPhoneNumber('');
+      setIsCartOpen(false);
+    } else {
+      Swal.fire({
+        title: 'Oopsie! 🥺',
+        text: json.error || 'Failed to place order.',
+        icon: 'error',
+        confirmButtonColor: '#ff6b6b',
+      });
+    }
+  } catch (err) {
+    Swal.fire({
+      title: 'Connection Error 😢',
+      text: 'Something went wrong. Please try again!',
+      icon: 'error',
+      confirmButtonColor: '#ff6b6b',
+    });
+  }
+};
+  
   if (loading) return <div className="p-8 text-center text-xl font-medium">Loading Menu...</div>;
 
   const currentCategory = categories.find((cat) => cat.id === selectedCategory);
