@@ -1,51 +1,56 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { supabase } from '@/lib/supabaseClient';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-    if (!supabaseUrl || !supabaseKey) {
-      return NextResponse.json(
-        { success: false, error: 'Environment variables missing' },
-        { status: 500 }
-      );
-    }
-
-    const supabase = createClient(supabaseUrl, supabaseKey);
-
-    // 1. Fetch categories
+    // 1. Fetch categories with menu items
     const { data: categories, error: catError } = await supabase
       .from('categories')
-      .select('*');
+      .select('*, menu_items(*)');
 
     if (catError) {
+      console.error('Category Error:', catError.message);
       return NextResponse.json({ success: false, error: catError.message }, { status: 500 });
     }
 
-    // 2. Fetch menu items
-    const { data: menuItems, error: itemError } = await supabase
-      .from('menu_items')
+    // 2. Fetch all reviews safely
+    const { data: reviews } = await supabase
+      .from('reviews')
       .select('*');
 
-    if (itemError) {
-      return NextResponse.json({ success: false, error: itemError.message }, { status: 500 });
-    }
-
-    // 3. Map items into categories manually
-    const data = categories.map((cat) => ({
+    // 3. Map average ratings to each menu item safely
+    const formattedCategories = categories?.map((cat: any) => ({
       ...cat,
-      menu_items: menuItems.filter((item) => item.category_id === cat.id),
-    }));
+      menu_items: cat.menu_items?.map((item: any) => {
+        // Find reviews matching this menu item (if menu_item_id exists) or overall reviews
+        const itemReviews = reviews?.filter((r: any) => r.menu_item_id === item.id) || [];
+        
+        let avgRating: number | null = null;
+        let totalReviews = 0;
 
-    return NextResponse.json({ success: true, data });
+        if (itemReviews.length > 0) {
+          const total = itemReviews.reduce((sum: number, r: any) => sum + (Number(r.rating) || 0), 0);
+          avgRating = parseFloat((total / itemReviews.length).toFixed(1));
+          totalReviews = itemReviews.length;
+        } else if (reviews && reviews.length > 0) {
+          // Fallback to overall store avg rating if specific item reviews aren't mapped
+          const total = reviews.reduce((sum: number, r: any) => sum + (Number(r.rating) || 0), 0);
+          avgRating = parseFloat((total / reviews.length).toFixed(1));
+          totalReviews = reviews.length;
+        }
+
+        return {
+          ...item,
+          avgRating,
+          totalReviews,
+        };
+      }) || [],
+    })) || [];
+
+    return NextResponse.json({ success: true, data: formattedCategories });
   } catch (err: any) {
-    return NextResponse.json(
-      { success: false, error: err.message || 'Server error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
   }
 }
