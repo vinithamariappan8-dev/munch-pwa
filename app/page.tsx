@@ -50,6 +50,11 @@ export default function Home() {
       }
     }
     fetchMenu();
+
+    // Register Service Worker for PWA
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js');
+    }
   }, []);
 
   // Cart Functions
@@ -173,17 +178,14 @@ export default function Home() {
   const categories = ['All', 'Pizza', 'Burgers', 'Drinks'];
   
   const filteredMenuItems = menuItems.filter((item) => {
-    // 1. Category Filter
     const matchesCategory =
       selectedCategory === 'All' ||
       item.category?.toLowerCase() === selectedCategory.toLowerCase();
 
-    // 2. Search Query Filter
     const matchesSearch = item.name
       .toLowerCase()
       .includes(searchQuery.toLowerCase());
 
-    // 3. Veg / Non-Veg Filter
     const isVeg = item.is_veg ?? !item.name.toLowerCase().includes('chicken');
     const matchesDiet =
       dietFilter === 'All' ||
@@ -201,7 +203,6 @@ export default function Home() {
 
         {/* 🔍 Search Bar & Veg/Non-Veg Filter Controls */}
         <div className="flex flex-col sm:flex-row gap-3 mb-6 items-center justify-between">
-          {/* Search Input */}
           <div className="relative w-full sm:w-72">
             <input
               type="text"
@@ -213,7 +214,6 @@ export default function Home() {
             <span className="absolute left-3 top-2 text-gray-400 text-xs">🔍</span>
           </div>
 
-          {/* Veg / Non-Veg Toggle Buttons */}
           <div className="flex bg-gray-200 p-1 rounded-xl text-xs font-bold w-full sm:w-auto justify-center">
             <button
               onClick={() => setDietFilter('All')}
@@ -300,17 +300,15 @@ export default function Home() {
         </div>
       </main>
 
-      {/* RIGHT: Cart & Checkout Sidebar */}
-      <aside className="w-full md:w-80 bg-white p-6 border-l flex flex-col justify-between shadow-lg">
-        <div>
-          <h2 className="text-xl font-bold text-gray-800 border-b pb-4 mb-4">Your Cart</h2>
+      {/* RIGHT: Cart & Checkout Sidebar (Shows ONLY when cart has items) */}
+      {cart.length > 0 && (
+        <aside className="w-full md:w-80 bg-white p-6 border-l flex flex-col justify-between shadow-lg">
+          <div>
+            <h2 className="text-xl font-bold text-gray-800 border-b pb-4 mb-4">Your Cart</h2>
 
-          {/* Cart Items List */}
-          <div className="space-y-3 max-h-60 overflow-y-auto pr-1">
-            {cart.length === 0 ? (
-              <p className="text-sm text-gray-400 text-center py-6">Your cart is empty.</p>
-            ) : (
-              cart.map((item) => (
+            {/* Cart Items List */}
+            <div className="space-y-3 max-h-60 overflow-y-auto pr-1">
+              {cart.map((item) => (
                 <div key={item.id} className="flex justify-between items-center text-sm border-b pb-2">
                   <div>
                     <p className="font-bold text-gray-800">{item.name}</p>
@@ -333,12 +331,10 @@ export default function Home() {
                     </button>
                   </div>
                 </div>
-              ))
-            )}
-          </div>
+              ))}
+            </div>
 
-          {/* 🎟️ PROMO CODE / COUPON SECTION */}
-          {cart.length > 0 && (
+            {/* 🎟️ PROMO CODE / COUPON SECTION */}
             <div className="p-3 my-4 bg-gray-50 rounded-xl border border-gray-200">
               <p className="text-[10px] font-bold text-gray-500 mb-1.5 uppercase">Have a Promo Code?</p>
 
@@ -377,57 +373,57 @@ export default function Home() {
               {couponError && <p className="text-red-500 text-[10px] mt-1 font-medium">{couponError}</p>}
               {couponSuccess && !appliedCoupon && <p className="text-green-600 text-[10px] mt-1 font-bold">{couponSuccess}</p>}
             </div>
-          )}
 
-          {/* Customer Details Form */}
-          <div className="mt-4 pt-4 border-t space-y-3">
-            <h3 className="text-xs font-bold text-gray-500 uppercase">Customer Details</h3>
+            {/* Customer Details Form */}
+            <div className="mt-4 pt-4 border-t space-y-3">
+              <h3 className="text-xs font-bold text-gray-500 uppercase">Customer Details</h3>
 
-            <div>
-              <input
-                type="text"
-                placeholder="Enter your name"
-                value={customerName}
-                onChange={(e) => setCustomerName(e.target.value)}
-                className="w-full border rounded-xl px-3 py-2 text-xs focus:outline-amber-800"
-              />
-            </div>
+              <div>
+                <input
+                  type="text"
+                  placeholder="Enter your name"
+                  value={customerName}
+                  onChange={(e) => setCustomerName(e.target.value)}
+                  className="w-full border rounded-xl px-3 py-2 text-xs focus:outline-amber-800"
+                />
+              </div>
 
-            <div>
-              <input
-                type="text"
-                placeholder="Enter mobile number"
-                value={phoneNumber}
-                onChange={(e) => setPhoneNumber(e.target.value)}
-                className="w-full border rounded-xl px-3 py-2 text-xs focus:outline-amber-800"
-              />
+              <div>
+                <input
+                  type="text"
+                  placeholder="Enter mobile number"
+                  value={phoneNumber}
+                  onChange={(e) => setPhoneNumber(e.target.value)}
+                  className="w-full border rounded-xl px-3 py-2 text-xs focus:outline-amber-800"
+                />
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Bill Summary & Place Order Button */}
-        <div className="mt-6 pt-4 border-t">
-          {appliedCoupon && (
-            <div className="flex justify-between text-xs text-green-600 font-bold mb-1">
-              <span>Discount:</span>
-              <span>-₹{discount}</span>
+          {/* Bill Summary & Place Order Button */}
+          <div className="mt-6 pt-4 border-t">
+            {appliedCoupon && (
+              <div className="flex justify-between text-xs text-green-600 font-bold mb-1">
+                <span>Discount:</span>
+                <span>-₹{discount}</span>
+              </div>
+            )}
+
+            <div className="flex justify-between font-bold text-gray-800 text-base mb-4">
+              <span>Total Amount:</span>
+              <span className="text-green-600">₹{finalTotal}</span>
             </div>
-          )}
 
-          <div className="flex justify-between font-bold text-gray-800 text-base mb-4">
-            <span>Total Amount:</span>
-            <span className="text-green-600">₹{finalTotal}</span>
+            <button
+              onClick={handlePlaceOrder}
+              disabled={isSubmitting || cart.length === 0}
+              className="w-full bg-amber-800 hover:bg-amber-900 text-white font-bold py-3 rounded-xl shadow-md transition disabled:opacity-50 text-sm"
+            >
+              {isSubmitting ? 'Placing Order...' : 'Place Order'}
+            </button>
           </div>
-
-          <button
-            onClick={handlePlaceOrder}
-            disabled={isSubmitting || cart.length === 0}
-            className="w-full bg-amber-800 hover:bg-amber-900 text-white font-bold py-3 rounded-xl shadow-md transition disabled:opacity-50 text-sm"
-          >
-            {isSubmitting ? 'Placing Order...' : 'Place Order'}
-          </button>
-        </div>
-      </aside>
+        </aside>
+      )}
     </div>
   );
 }
