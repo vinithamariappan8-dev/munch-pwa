@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Munch - Food Ordering App",
-  description: "Delicious food delivered to your table",
-  manifest: "/manifest.json", // 👈 இந்த வரியைச் சேர்க்கவும்
+  title: "Munch - The Yard Milkshake Bar",
+  description: "Specialty milkshakes and delicious food delivered to your table",
+  manifest: "/manifest.json",
 };
 
 export default function RootLayout({

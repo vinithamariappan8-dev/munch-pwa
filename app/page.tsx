@@ -168,15 +168,19 @@ export default function HomePage() {
     return matchesSearch && matchesVeg && matchesCategory;
   });
 
-  const categories = ['All', 'Pizza', 'Burger', 'Drinks'];
+  const categories = ['All', 'Milkshakes', 'Shakes', 'Desserts', 'Drinks'];
 
   return (
     <div className="min-h-screen bg-gray-100 p-4 font-sans pb-24">
       <div className="max-w-4xl mx-auto space-y-6">
         
-        {/* Header */}
+        {/* Header - The Yard Milkshake Bar */}
         <div className="flex justify-between items-center bg-white p-4 rounded-3xl shadow-sm border border-gray-100">
-          <h1 className="text-2xl font-black text-amber-800">Munch Menu 🍔</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-xl sm:text-2xl font-black text-pink-600">
+              The Yard <span className="text-gray-900">Milkshake Bar</span> 🥤
+            </h1>
+          </div>
           <Link
             href="/admin"
             className="text-xs font-bold bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-2 rounded-xl transition"
@@ -193,7 +197,7 @@ export default function HomePage() {
               onClick={() => setOrderType(type)}
               className={`px-4 py-2 rounded-xl text-xs font-bold transition ${
                 orderType === type
-                  ? 'bg-amber-800 text-white shadow-sm'
+                  ? 'bg-pink-600 text-white shadow-sm'
                   : 'text-gray-500 hover:bg-gray-50'
               }`}
             >
@@ -207,10 +211,10 @@ export default function HomePage() {
           <div className="relative w-full sm:w-80">
             <input
               type="text"
-              placeholder="Search food items..."
+              placeholder="Search shakes & treats..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full bg-white border border-gray-200 rounded-2xl px-4 py-2.5 text-xs font-medium focus:outline-amber-800 pl-9"
+              className="w-full bg-white border border-gray-200 rounded-2xl px-4 py-2.5 text-xs font-medium focus:outline-pink-600 pl-9"
             />
             <span className="absolute left-3 top-2.5 text-gray-400 text-xs">🔍</span>
           </div>
@@ -244,18 +248,18 @@ export default function HomePage() {
               onClick={() => setSelectedCategory(cat)}
               className={`px-4 py-2 rounded-2xl text-xs font-bold whitespace-nowrap transition border ${
                 selectedCategory === cat
-                  ? 'bg-amber-800 text-white border-amber-800 shadow-sm'
+                  ? 'bg-pink-600 text-white border-pink-600 shadow-sm'
                   : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
               }`}
             >
-              {cat === 'Pizza' ? '🍕 Pizza' : cat === 'Burger' ? '🍔 Burger' : cat === 'Drinks' ? '🥤 Drinks' : '✨ All Items'}
+              {cat === 'Milkshakes' ? '🥤 Milkshakes' : cat === 'Shakes' ? '🍨 Shakes' : cat === 'Desserts' ? '🍰 Desserts' : cat === 'Drinks' ? '🧃 Drinks' : '✨ All Items'}
             </button>
           ))}
         </div>
 
         {/* Food Items List Grid */}
         {loading ? (
-          <div className="text-center py-12 text-xs font-bold text-gray-400">Loading Menu... 🍕</div>
+          <div className="text-center py-12 text-xs font-bold text-gray-400">Loading Menu... 🥤</div>
         ) : filteredItems.length === 0 ? (
           <div className="text-center py-12 text-xs font-bold text-gray-400">No items found matching your filters.</div>
         ) : (
@@ -280,22 +284,22 @@ export default function HomePage() {
                         <h3 className="font-bold text-sm text-gray-800">{item.name}</h3>
                       </div>
                       <p className="text-[10px] text-gray-400 line-clamp-1">{item.description}</p>
-                      <p className="font-black text-amber-800 text-xs">₹{item.price}</p>
+                      <p className="font-black text-pink-600 text-xs">₹{item.price}</p>
                     </div>
                   </div>
 
                   {inCart ? (
-                    <div className="flex items-center gap-2 bg-amber-50 p-1.5 rounded-xl border border-amber-200">
+                    <div className="flex items-center gap-2 bg-pink-50 p-1.5 rounded-xl border border-pink-200">
                       <button
                         onClick={() => removeFromCart(item.id)}
-                        className="w-6 h-6 rounded-lg bg-white font-black text-amber-800 shadow-sm flex items-center justify-center text-xs"
+                        className="w-6 h-6 rounded-lg bg-white font-black text-pink-600 shadow-sm flex items-center justify-center text-xs"
                       >
                         -
                       </button>
-                      <span className="font-extrabold text-xs text-amber-800">{inCart.quantity}</span>
+                      <span className="font-extrabold text-xs text-pink-600">{inCart.quantity}</span>
                       <button
                         onClick={() => addToCart(item)}
-                        className="w-6 h-6 rounded-lg bg-amber-800 font-black text-white shadow-sm flex items-center justify-center text-xs"
+                        className="w-6 h-6 rounded-lg bg-pink-600 font-black text-white shadow-sm flex items-center justify-center text-xs"
                       >
                         +
                       </button>
@@ -303,7 +307,7 @@ export default function HomePage() {
                   ) : (
                     <button
                       onClick={() => addToCart(item)}
-                      className="bg-amber-800 hover:bg-amber-900 text-white font-bold text-xs px-4 py-2 rounded-xl transition shadow-sm"
+                      className="bg-pink-600 hover:bg-pink-700 text-white font-bold text-xs px-4 py-2 rounded-xl transition shadow-sm"
                     >
                       Add
                     </button>
@@ -318,16 +322,16 @@ export default function HomePage() {
 
       {/* Floating Bottom Cart Bar */}
       {cart.length > 0 && (
-        <div className="fixed bottom-4 left-4 right-4 max-w-md mx-auto bg-amber-800 text-white p-4 rounded-3xl shadow-2xl flex justify-between items-center z-50 animate-fade-in">
+        <div className="fixed bottom-4 left-4 right-4 max-w-md mx-auto bg-pink-600 text-white p-4 rounded-3xl shadow-2xl flex justify-between items-center z-50 animate-fade-in">
           <div>
-            <p className="text-[10px] font-bold text-amber-200 uppercase">
+            <p className="text-[10px] font-bold text-pink-200 uppercase">
               {cart.reduce((a, b) => a + b.quantity, 0)} ITEMS IN CART
             </p>
             <p className="text-lg font-black">₹{totalAmount}</p>
           </div>
           <button
             onClick={() => setIsCartOpen(true)}
-            className="bg-white text-amber-800 font-bold text-xs px-5 py-2.5 rounded-2xl shadow-md hover:bg-amber-50 transition"
+            className="bg-white text-pink-600 font-bold text-xs px-5 py-2.5 rounded-2xl shadow-md hover:bg-pink-50 transition"
           >
             View Cart & Checkout →
           </button>
@@ -356,16 +360,16 @@ export default function HomePage() {
                     <p className="font-bold text-gray-800">{c.menuItem.name}</p>
                     <p className="text-[10px] text-gray-400">Qty: {c.quantity}</p>
                   </div>
-                  <span className="font-bold text-amber-800">₹{c.menuItem.price * c.quantity}</span>
+                  <span className="font-bold text-pink-600">₹{c.menuItem.price * c.quantity}</span>
                 </div>
               ))}
             </div>
 
             {/* 🎟️ Coupon Code Section */}
-            <div className="bg-amber-50/60 p-3 rounded-2xl border border-amber-100 space-y-2">
+            <div className="bg-pink-50/60 p-3 rounded-2xl border border-pink-100 space-y-2">
               <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold text-amber-900">Have a Promo Code?</span>
-                <span className="text-[10px] font-mono font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-lg">Try: MUNCH50</span>
+                <span className="text-[11px] font-bold text-pink-900">Have a Promo Code?</span>
+                <span className="text-[10px] font-mono font-bold text-pink-700 bg-pink-100 px-2 py-0.5 rounded-lg">Try: MUNCH50</span>
               </div>
 
               {!couponApplied ? (
@@ -375,12 +379,12 @@ export default function HomePage() {
                     placeholder="Enter Coupon (e.g. MUNCH50)"
                     value={couponCode}
                     onChange={(e) => setCouponCode(e.target.value)}
-                    className="w-full border rounded-xl px-3 py-1.5 text-xs font-bold uppercase bg-white focus:outline-amber-800"
+                    className="w-full border rounded-xl px-3 py-1.5 text-xs font-bold uppercase bg-white focus:outline-pink-600"
                   />
                   <button
                     type="button"
                     onClick={handleApplyCoupon}
-                    className="bg-amber-800 hover:bg-amber-900 text-white font-bold text-xs px-3.5 py-1.5 rounded-xl transition"
+                    className="bg-pink-600 hover:bg-pink-700 text-white font-bold text-xs px-3.5 py-1.5 rounded-xl transition"
                   >
                     Apply
                   </button>
@@ -423,7 +427,7 @@ export default function HomePage() {
                 required
                 value={customerName}
                 onChange={(e) => setCustomerName(e.target.value)}
-                className="w-full border rounded-2xl px-4 py-2.5 text-xs font-medium focus:outline-amber-800 bg-gray-50"
+                className="w-full border rounded-2xl px-4 py-2.5 text-xs font-medium focus:outline-pink-600 bg-gray-50"
               />
               <input
                 type="tel"
@@ -431,13 +435,13 @@ export default function HomePage() {
                 required
                 value={phoneNumber}
                 onChange={(e) => setPhoneNumber(e.target.value)}
-                className="w-full border rounded-2xl px-4 py-2.5 text-xs font-medium focus:outline-amber-800 bg-gray-50"
+                className="w-full border rounded-2xl px-4 py-2.5 text-xs font-medium focus:outline-pink-600 bg-gray-50"
               />
 
               <button
                 type="submit"
                 disabled={placingOrder}
-                className="w-full bg-amber-800 hover:bg-amber-900 text-white font-bold text-xs py-3 rounded-2xl shadow-md transition"
+                className="w-full bg-pink-600 hover:bg-pink-700 text-white font-bold text-xs py-3 rounded-2xl shadow-md transition"
               >
                 {placingOrder ? 'Placing Order...' : 'Confirm Order 🚀'}
               </button>

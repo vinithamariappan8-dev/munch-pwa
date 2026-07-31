@@ -1,11 +1,11 @@
 {
-  "name": "Munch Food App",
+  "name": "Munch - The Yard Milkshake Bar",
   "short_name": "Munch",
-  "description": "Order your favorite food easily!",
+  "description": "Order your favorite milkshakes and desserts easily!",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
-  "theme_color": "#f97316",
+  "theme_color": "#db2777",
   "icons": [
     {
       "src": "/favicon.ico",
