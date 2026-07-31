@@ -37,6 +37,12 @@ export default function HomePage() {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [placingOrder, setPlacingOrder] = useState(false);
 
+  // 🎟️ Coupon Code States
+  const [couponCode, setCouponCode] = useState('');
+  const [discount, setDiscount] = useState(0);
+  const [couponApplied, setCouponApplied] = useState(false);
+  const [couponError, setCouponError] = useState('');
+
   useEffect(() => {
     const fetchMenuItems = async () => {
       setLoading(true);
@@ -73,7 +79,32 @@ export default function HomePage() {
     );
   };
 
-  const totalAmount = cart.reduce((acc, curr) => acc + curr.menuItem.price * curr.quantity, 0);
+  const subTotal = cart.reduce((acc, curr) => acc + curr.menuItem.price * curr.quantity, 0);
+  const totalAmount = Math.max(0, subTotal - discount);
+
+  // Coupon Code Verification
+  const handleApplyCoupon = () => {
+    setCouponError('');
+    const code = couponCode.trim().toUpperCase();
+
+    if (code === 'MUNCH50') {
+      setDiscount(50);
+      setCouponApplied(true);
+    } else if (code === 'WELCOME10') {
+      const calculatedDiscount = Math.round(subTotal * 0.1); // 10% Discount
+      setDiscount(calculatedDiscount);
+      setCouponApplied(true);
+    } else {
+      setCouponError('Invalid Coupon Code! Try "MUNCH50"');
+    }
+  };
+
+  const handleRemoveCoupon = () => {
+    setDiscount(0);
+    setCouponApplied(false);
+    setCouponCode('');
+    setCouponError('');
+  };
 
   // Place Order Handler
   const handlePlaceOrder = async (e: React.FormEvent) => {
@@ -86,7 +117,6 @@ export default function HomePage() {
     setPlacingOrder(true);
 
     try {
-      // 1. Insert into orders table
       const { data: orderData, error: orderError } = await supabase
         .from('orders')
         .insert({
@@ -101,7 +131,6 @@ export default function HomePage() {
 
       if (orderError) throw orderError;
 
-      // 2. Insert into order_items table
       const orderItems = cart.map((item) => ({
         order_id: orderData.id,
         menu_item_id: item.menuItem.id,
@@ -112,7 +141,6 @@ export default function HomePage() {
       const { error: itemsError } = await supabase.from('order_items').insert(orderItems);
       if (itemsError) throw itemsError;
 
-      // Redirect to Order Tracking Page
       window.location.href = `/track/${orderData.id}`;
     } catch (err) {
       console.error('Order Error:', err);
@@ -208,7 +236,7 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* 🔥 NEW: Category Pills Filter (Pizza, Burger, Drinks) */}
+        {/* Category Pills Filter */}
         <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
           {categories.map((cat) => (
             <button
@@ -309,7 +337,7 @@ export default function HomePage() {
       {/* Checkout Modal */}
       {isCartOpen && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-3xl p-6 max-w-sm w-full space-y-5 animate-slide-up">
+          <div className="bg-white rounded-3xl p-6 max-w-sm w-full space-y-4 animate-slide-up">
             <div className="flex justify-between items-center border-b pb-3">
               <h2 className="font-black text-base text-gray-800">Your Order Details 🛒</h2>
               <button
@@ -321,7 +349,7 @@ export default function HomePage() {
             </div>
 
             {/* Cart Items List */}
-            <div className="space-y-2 max-h-40 overflow-y-auto">
+            <div className="space-y-2 max-h-36 overflow-y-auto">
               {cart.map((c) => (
                 <div key={c.menuItem.id} className="flex justify-between items-center text-xs bg-gray-50 p-2.5 rounded-xl">
                   <div>
@@ -333,10 +361,58 @@ export default function HomePage() {
               ))}
             </div>
 
-            {/* Total Amount */}
-            <div className="flex justify-between items-center border-t border-b py-2 text-xs font-bold">
-              <span className="text-gray-500">Total Bill</span>
-              <span className="text-green-600 text-sm font-black">₹{totalAmount}</span>
+            {/* 🎟️ Coupon Code Section */}
+            <div className="bg-amber-50/60 p-3 rounded-2xl border border-amber-100 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-amber-900">Have a Promo Code?</span>
+                <span className="text-[10px] font-mono font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-lg">Try: MUNCH50</span>
+              </div>
+
+              {!couponApplied ? (
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="Enter Coupon (e.g. MUNCH50)"
+                    value={couponCode}
+                    onChange={(e) => setCouponCode(e.target.value)}
+                    className="w-full border rounded-xl px-3 py-1.5 text-xs font-bold uppercase bg-white focus:outline-amber-800"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleApplyCoupon}
+                    className="bg-amber-800 hover:bg-amber-900 text-white font-bold text-xs px-3.5 py-1.5 rounded-xl transition"
+                  >
+                    Apply
+                  </button>
+                </div>
+              ) : (
+                <div className="flex justify-between items-center bg-green-100 border border-green-200 p-2 rounded-xl text-xs font-bold text-green-800">
+                  <span>🎉 Coupon '{couponCode.toUpperCase()}' Applied! (-₹{discount})</span>
+                  <button onClick={handleRemoveCoupon} className="text-red-600 hover:underline text-[10px] font-bold">
+                    Remove
+                  </button>
+                </div>
+              )}
+
+              {couponError && <p className="text-[10px] text-red-500 font-bold">{couponError}</p>}
+            </div>
+
+            {/* Bill Summary */}
+            <div className="space-y-1 border-t pt-2 text-xs">
+              <div className="flex justify-between text-gray-500 font-medium">
+                <span>Subtotal</span>
+                <span>₹{subTotal}</span>
+              </div>
+              {discount > 0 && (
+                <div className="flex justify-between text-green-600 font-bold">
+                  <span>Discount</span>
+                  <span>-₹{discount}</span>
+                </div>
+              )}
+              <div className="flex justify-between items-center border-t pt-2 font-bold text-gray-800">
+                <span>Total Amount</span>
+                <span className="text-green-600 text-sm font-black">₹{totalAmount}</span>
+              </div>
             </div>
 
             {/* Customer Form */}
