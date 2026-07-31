@@ -19,10 +19,9 @@ export default function AdminOrders() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // Set your secret Admin PIN here (Default: 1234)
+  // Set your secret Admin PIN here
   const ADMIN_PIN = '1234';
 
-  // Check session storage on load
   useEffect(() => {
     const savedAuth = sessionStorage.getItem('admin_authenticated');
     if (savedAuth === 'true') {
@@ -31,7 +30,6 @@ export default function AdminOrders() {
     }
   }, []);
 
-  // Handle PIN Login
   const handlePinSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (pinInput === ADMIN_PIN) {
@@ -45,7 +43,6 @@ export default function AdminOrders() {
     }
   };
 
-  // Fetch Orders from Supabase
   const fetchOrders = async () => {
     setLoading(true);
     const { data, error } = await supabase
@@ -61,14 +58,50 @@ export default function AdminOrders() {
     setLoading(false);
   };
 
-  // Logout Admin Session
+  // 🔄 Update Order Status
+  const handleStatusChange = async (orderId: string, newStatus: string) => {
+    const { error } = await supabase
+      .from('orders')
+      .update({ status: newStatus })
+      .eq('id', orderId);
+
+    if (error) {
+      console.error('Error updating status:', error);
+      alert('Failed to update status');
+    } else {
+      setOrders((prev) =>
+        prev.map((order) =>
+          order.id === orderId ? { ...order, status: newStatus } : order
+        )
+      );
+    }
+  };
+
   const handleLogout = () => {
     sessionStorage.removeItem('admin_authenticated');
     setIsAuthenticated(false);
     setPinInput('');
   };
 
-  // 🔒 SCREEN 1: PIN LOCK SCREEN (If not authenticated)
+  // Status Badge Colors
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'Pending':
+        return 'bg-amber-100 text-amber-800 border-amber-300';
+      case 'Preparing':
+        return 'bg-blue-100 text-blue-800 border-blue-300';
+      case 'Out for Delivery':
+        return 'bg-purple-100 text-purple-800 border-purple-300';
+      case 'Delivered':
+        return 'bg-green-100 text-green-800 border-green-300';
+      case 'Cancelled':
+        return 'bg-red-100 text-red-800 border-red-300';
+      default:
+        return 'bg-gray-100 text-gray-800 border-gray-300';
+    }
+  };
+
+  // 🔒 SCREEN 1: PIN LOCK
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-gray-900 flex items-center justify-center p-4">
@@ -103,7 +136,7 @@ export default function AdminOrders() {
     );
   }
 
-  // 📊 SCREEN 2: ADMIN DASHBOARD (If authenticated)
+  // 📊 SCREEN 2: ADMIN DASHBOARD
   return (
     <div className="min-h-screen bg-gray-100 p-6">
       <div className="max-w-5xl mx-auto">
@@ -129,17 +162,29 @@ export default function AdminOrders() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {orders.map((order) => (
-              <div key={order.id} className="bg-white p-5 rounded-2xl border shadow-sm space-y-2">
+              <div key={order.id} className="bg-white p-5 rounded-2xl border shadow-sm space-y-3">
                 <div className="flex justify-between items-center border-b pb-2">
                   <span className="font-bold text-xs text-amber-800">
                     Order #{order.id.slice(0, 8)}
                   </span>
-                  <span className="text-[10px] bg-green-100 text-green-700 px-2.5 py-1 rounded-full font-bold">
-                    {order.status}
-                  </span>
+                  
+                  {/* Status Dropdown */}
+                  <select
+                    value={order.status}
+                    onChange={(e) => handleStatusChange(order.id, e.target.value)}
+                    className={`text-xs font-bold px-3 py-1 rounded-full border focus:outline-none cursor-pointer ${getStatusColor(
+                      order.status
+                    )}`}
+                  >
+                    <option value="Pending">⏳ Pending</option>
+                    <option value="Preparing">👨‍🍳 Preparing</option>
+                    <option value="Out for Delivery">🛵 Out for Delivery</option>
+                    <option value="Delivered">✅ Delivered</option>
+                    <option value="Cancelled">❌ Cancelled</option>
+                  </select>
                 </div>
 
-                <div className="text-xs space-y-1 text-gray-600 pt-1">
+                <div className="text-xs space-y-1 text-gray-600">
                   <p><span className="font-bold text-gray-800">Customer:</span> {order.customer_name}</p>
                   <p><span className="font-bold text-gray-800">Phone:</span> {order.phone_number}</p>
                   <p><span className="font-bold text-gray-800">Date:</span> {new Date(order.created_at).toLocaleString()}</p>

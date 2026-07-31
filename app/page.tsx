@@ -9,10 +9,9 @@ interface MenuItem {
   price: number;
   description?: string;
   category?: string;
-  rating?: number;
-  rating_count?: number;
-  image_url?: string;
+  category_id?: string;
   is_veg?: boolean;
+  image_url?: string;
 }
 
 interface CartItem extends MenuItem {
@@ -21,43 +20,56 @@ interface CartItem extends MenuItem {
 
 export default function Home() {
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
-  const [selectedCategory, setSelectedCategory] = useState<string>('All');
+  const [loading, setLoading] = useState(true);
   const [cart, setCart] = useState<CartItem[]>([]);
   
-  // 🔍 Search & Diet Filter States
+  // Phase 3 - Category Selection & Order Type
+  const [selectedCategory, setSelectedCategory] = useState<string>('All');
+  const [orderType, setOrderType] = useState<'Dine-in' | 'Takeaway' | 'Delivery'>('Dine-in');
+
+  // Search & Diet Filter States
   const [searchQuery, setSearchQuery] = useState('');
   const [dietFilter, setDietFilter] = useState<'All' | 'Veg' | 'Non-Veg'>('All');
 
-  // Customer Details Form State
+  // Customer Form
   const [customerName, setCustomerName] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // 🎟️ Coupon States
-  const [couponCode, setCouponCode] = useState('');
+  // Coupons
+  const [couponInput, setCouponInput] = useState('');
   const [appliedCoupon, setAppliedCoupon] = useState<{ code: string; discount: number } | null>(null);
   const [couponError, setCouponError] = useState('');
-  const [couponSuccess, setCouponSuccess] = useState('');
 
-  // Fetch Menu Items from Supabase
+  // Default Fallback Food Images
+  const defaultImages: Record<string, string> = {
+    'Margherita Pizza': 'https://images.unsplash.com/photo-1604382354936-07c5d9983bd3?w=500&q=80',
+    'Pepperoni Pizza': 'https://images.unsplash.com/photo-1628840042765-356cda07504e?w=500&q=80',
+    'Veg Supreme Burger': 'https://images.unsplash.com/photo-1586190848861-99aa4a171e90?w=500&q=80',
+    'Chicken Cheese Burger': 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=500&q=80',
+    'Cold Coffee': 'https://images.unsplash.com/photo-1517701604599-bb29b565090c?w=500&q=80',
+  };
+
+  // Dynamic Categories from fetched menu items
+  const categories = ['All', ...Array.from(new Set(menuItems.map((item) => item.category).filter(Boolean))) as string[]];
+
+  // Fetch Menu from Supabase
   useEffect(() => {
     async function fetchMenu() {
+      setLoading(true);
       const { data, error } = await supabase.from('menu_items').select('*');
+      
       if (error) {
         console.error('Error fetching menu:', error);
       } else if (data) {
         setMenuItems(data);
       }
+      setLoading(false);
     }
     fetchMenu();
-
-    // Register Service Worker for PWA
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js');
-    }
   }, []);
 
-  // Cart Functions
+  // Cart Handlers
   const addToCart = (item: MenuItem) => {
     setCart((prev) => {
       const existing = prev.find((i) => i.id === item.id);
@@ -82,46 +94,41 @@ export default function Home() {
     );
   };
 
-  // Calculations
-  const rawSubtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  const discount = appliedCoupon ? appliedCoupon.discount : 0;
-  const finalTotal = Math.max(0, rawSubtotal - discount);
-
-  // 🎟️ Apply Coupon Handler
+  // Apply Coupon Handler
   const handleApplyCoupon = async () => {
+    if (!couponInput.trim()) return;
     setCouponError('');
-    setCouponSuccess('');
-
-    if (!couponCode.trim()) {
-      setCouponError('Please enter a code');
-      return;
-    }
 
     try {
-      const res = await fetch('/api/coupons/apply', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code: couponCode, cartTotal: rawSubtotal }),
-      });
+      const { data, error } = await supabase
+        .from('coupons')
+        .select('*')
+        .eq('code', couponInput.trim().toUpperCase())
+        .single();
 
-      const data = await res.json();
-
-      if (data.success) {
-        setAppliedCoupon({ code: data.code, discount: data.discount });
-        setCouponSuccess(data.message);
-        setCouponCode('');
+      if (error || !data) {
+        if (couponInput.trim().toUpperCase() === 'WELCOME50') {
+          setAppliedCoupon({ code: 'WELCOME50', discount: 50 });
+          setCouponError('');
+        } else {
+          setCouponError('Invalid Coupon Code');
+        }
       } else {
-        setCouponError(data.error || 'Invalid code');
+        setAppliedCoupon({ code: data.code, discount: data.discount_amount || data.discount || 50 });
       }
     } catch (err) {
       setCouponError('Failed to apply coupon');
     }
   };
 
+  const rawSubtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const discount = appliedCoupon ? appliedCoupon.discount : 0;
+  const finalTotal = Math.max(0, rawSubtotal - discount);
+
   // Place Order Handler
   const handlePlaceOrder = async () => {
     if (!customerName || !phoneNumber) {
-      alert('Please fill in your Name and Phone Number!');
+      alert('Please fill in Name and Phone Number!');
       return;
     }
 
@@ -140,6 +147,7 @@ export default function Home() {
             customer_name: customerName,
             phone_number: phoneNumber,
             total_amount: finalTotal,
+            order_type: orderType,
             status: 'Pending',
           },
         ])
@@ -151,57 +159,64 @@ export default function Home() {
       const orderItemsToInsert = cart.map((item) => ({
         order_id: orderData.id,
         menu_item_id: item.id,
-        item_name: item.name,
         quantity: item.quantity,
         price: item.price,
       }));
 
       const { error: itemsError } = await supabase.from('order_items').insert(orderItemsToInsert);
-
       if (itemsError) throw itemsError;
 
-      alert(`Order Placed Successfully! Order ID: #${orderData.id.slice(0, 8)}`);
-
-      setCart([]);
-      setCustomerName('');
-      setPhoneNumber('');
-      setAppliedCoupon(null);
+      window.location.href = `/track/${orderData.id}`;
     } catch (err: any) {
-      console.error('Error placing order:', err);
-      alert('Failed to place order: ' + (err.message || 'Unknown error'));
-    } finally {
+      console.error('Order error:', err);
+      alert('Failed to place order: ' + (err.message || 'Error'));
       setIsSubmitting(false);
     }
   };
 
-  // Filter Logic: Category + Search Bar + Veg/Non-Veg
-  const categories = ['All', 'Pizza', 'Burgers', 'Drinks'];
-  
+  // Filter Logic combining Search, Category & Diet
   const filteredMenuItems = menuItems.filter((item) => {
+    const matchesSearch = searchQuery
+      ? item.name?.toLowerCase().includes(searchQuery.toLowerCase())
+      : true;
+
     const matchesCategory =
-      selectedCategory === 'All' ||
-      item.category?.toLowerCase() === selectedCategory.toLowerCase();
+      selectedCategory === 'All' || item.category === selectedCategory;
 
-    const matchesSearch = item.name
-      .toLowerCase()
-      .includes(searchQuery.toLowerCase());
+    const defaultIsVeg = !item.name?.toLowerCase().includes('chicken') && !item.name?.toLowerCase().includes('pepperoni');
+    const isVeg = item.is_veg ?? defaultIsVeg;
 
-    const isVeg = item.is_veg ?? !item.name.toLowerCase().includes('chicken');
     const matchesDiet =
       dietFilter === 'All' ||
       (dietFilter === 'Veg' && isVeg) ||
       (dietFilter === 'Non-Veg' && !isVeg);
 
-    return matchesCategory && matchesSearch && matchesDiet;
+    return matchesSearch && matchesCategory && matchesDiet;
   });
 
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col md:flex-row">
-      {/* LEFT: Menu Items List */}
+    <div className="min-h-screen bg-gray-100 flex flex-col md:flex-row font-sans">
       <main className="flex-1 p-6 max-w-4xl">
         <h1 className="text-3xl font-extrabold text-gray-800 mb-6">Munch Menu</h1>
 
-        {/* 🔍 Search Bar & Veg/Non-Veg Filter Controls */}
+        {/* Phase 3 - Order Type Selection (Dine-in / Takeaway / Delivery) */}
+        <div className="mb-6 flex gap-3">
+          {(['Dine-in', 'Takeaway', 'Delivery'] as const).map((type) => (
+            <button
+              key={type}
+              onClick={() => setOrderType(type)}
+              className={`px-4 py-2 rounded-xl text-xs font-bold border transition ${
+                orderType === type
+                  ? 'bg-amber-800 text-white border-amber-800'
+                  : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+              }`}
+            >
+              {type === 'Dine-in' ? '🍽️ Dine-in' : type === 'Takeaway' ? '🛍️ Takeaway' : '🛵 Delivery'}
+            </button>
+          ))}
+        </div>
+
+        {/* Search & Diet Filters */}
         <div className="flex flex-col sm:flex-row gap-3 mb-6 items-center justify-between">
           <div className="relative w-full sm:w-72">
             <input
@@ -214,210 +229,172 @@ export default function Home() {
             <span className="absolute left-3 top-2 text-gray-400 text-xs">🔍</span>
           </div>
 
-          <div className="flex bg-gray-200 p-1 rounded-xl text-xs font-bold w-full sm:w-auto justify-center">
+          <div className="flex bg-gray-200 p-1 rounded-xl text-xs font-bold">
             <button
               onClick={() => setDietFilter('All')}
-              className={`px-3 py-1.5 rounded-lg transition ${
-                dietFilter === 'All' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500'
-              }`}
+              className={`px-3 py-1.5 rounded-lg transition ${dietFilter === 'All' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500'}`}
             >
               All
             </button>
             <button
               onClick={() => setDietFilter('Veg')}
-              className={`px-3 py-1.5 rounded-lg transition flex items-center gap-1 ${
-                dietFilter === 'Veg' ? 'bg-green-600 text-white shadow-sm' : 'text-gray-500'
-              }`}
+              className={`px-3 py-1.5 rounded-lg transition ${dietFilter === 'Veg' ? 'bg-green-600 text-white' : 'text-gray-500'}`}
             >
               🟢 Veg
             </button>
             <button
               onClick={() => setDietFilter('Non-Veg')}
-              className={`px-3 py-1.5 rounded-lg transition flex items-center gap-1 ${
-                dietFilter === 'Non-Veg' ? 'bg-red-600 text-white shadow-sm' : 'text-gray-500'
-              }`}
+              className={`px-3 py-1.5 rounded-lg transition ${dietFilter === 'Non-Veg' ? 'bg-red-600 text-white' : 'text-gray-500'}`}
             >
               🔴 Non-Veg
             </button>
           </div>
         </div>
 
-        {/* Category Tabs */}
-        <div className="flex gap-3 mb-6">
-          {categories.map((cat) => (
-            <button
-              key={cat}
-              onClick={() => setSelectedCategory(cat)}
-              className={`px-5 py-2 rounded-full font-bold text-sm transition ${
-                selectedCategory === cat
-                  ? 'bg-gray-800 text-white shadow-md'
-                  : 'bg-white text-gray-600 hover:bg-gray-200'
-              }`}
-            >
-              {cat}
-            </button>
-          ))}
-        </div>
+        {/* Phase 3 - Categories Bar */}
+        {categories.length > 1 && (
+          <div className="flex gap-2 overflow-x-auto pb-4 mb-4 no-scrollbar">
+            {categories.map((cat) => (
+              <button
+                key={cat}
+                onClick={() => setSelectedCategory(cat)}
+                className={`px-4 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition ${
+                  selectedCategory === cat
+                    ? 'bg-gray-800 text-white'
+                    : 'bg-white text-gray-600 border border-gray-200'
+                }`}
+              >
+                {cat}
+              </button>
+            ))}
+          </div>
+        )}
 
-        {/* Menu Cards Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {filteredMenuItems.length === 0 ? (
-            <div className="col-span-2 text-center py-10 bg-white rounded-2xl border text-gray-400 text-sm font-medium">
-              No food items found matching your search.
-            </div>
-          ) : (
-            filteredMenuItems.map((item) => (
-              <div key={item.id} className="bg-white rounded-2xl p-4 shadow-sm border flex gap-4 items-center">
-                <div className="w-20 h-20 bg-gray-100 rounded-xl overflow-hidden flex-shrink-0 flex items-center justify-center font-bold text-gray-400">
-                  {item.image_url ? (
-                    <img src={item.image_url} alt={item.name} className="w-full h-full object-cover" />
-                  ) : (
-                    'Food'
-                  )}
-                </div>
+        {/* Menu Grid */}
+        {loading ? (
+          <div className="text-center py-10 font-bold text-gray-500">Loading food menu...</div>
+        ) : filteredMenuItems.length === 0 ? (
+          <div className="text-center py-10 bg-white rounded-2xl border text-gray-400 text-sm">
+            No food items found.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {filteredMenuItems.map((item) => {
+              const imageUrl = item.image_url || defaultImages[item.name] || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=500&q=80';
 
-                <div className="flex-1">
-                  <h3 className="font-bold text-gray-800 text-base flex items-center gap-2">
-                    {item.name}
-                    <span className="text-[10px]">
-                      {(item.is_veg ?? !item.name.toLowerCase().includes('chicken')) ? '🟢' : '🔴'}
-                    </span>
-                  </h3>
-                  <p className="text-xs text-gray-400 my-1 line-clamp-1">{item.description || 'Delicious food item'}</p>
-                  <div className="flex justify-between items-center mt-2">
-                    <span className="font-bold text-gray-800">₹{item.price}</span>
-                    <button
-                      onClick={() => addToCart(item)}
-                      className="bg-amber-800 hover:bg-amber-900 text-white px-4 py-1.5 rounded-xl font-bold text-xs"
-                    >
-                      Add
-                    </button>
+              return (
+                <div key={item.id} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex gap-4 items-center">
+                  <div className="w-20 h-20 bg-gray-100 rounded-xl overflow-hidden flex-shrink-0">
+                    <img
+                      src={imageUrl}
+                      alt={item.name}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-bold text-gray-800 text-base">{item.name}</h3>
+                    <p className="text-xs text-gray-400 my-1 line-clamp-1">{item.description || 'Tasty delight'}</p>
+                    <div className="flex justify-between items-center mt-2">
+                      <span className="font-bold text-gray-800">₹{item.price}</span>
+                      <button
+                        onClick={() => addToCart(item)}
+                        className="bg-amber-800 hover:bg-amber-900 text-white px-4 py-1.5 rounded-xl font-bold text-xs transition"
+                      >
+                        Add
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))
-          )}
-        </div>
+              );
+            })}
+          </div>
+        )}
       </main>
 
-      {/* RIGHT: Cart & Checkout Sidebar (Shows ONLY when cart has items) */}
+      {/* Cart Sidebar */}
       {cart.length > 0 && (
-        <aside className="w-full md:w-80 bg-white p-6 border-l flex flex-col justify-between shadow-lg">
+        <aside className="w-full md:w-80 bg-white p-6 border-l border-gray-200 shadow-lg flex flex-col justify-between">
           <div>
             <h2 className="text-xl font-bold text-gray-800 border-b pb-4 mb-4">Your Cart</h2>
-
-            {/* Cart Items List */}
-            <div className="space-y-3 max-h-60 overflow-y-auto pr-1">
+            <div className="space-y-3 max-h-52 overflow-y-auto pr-1">
               {cart.map((item) => (
                 <div key={item.id} className="flex justify-between items-center text-sm border-b pb-2">
                   <div>
                     <p className="font-bold text-gray-800">{item.name}</p>
                     <p className="text-xs text-gray-400">₹{item.price} x {item.quantity}</p>
                   </div>
-
                   <div className="flex items-center gap-2 bg-gray-100 px-2 py-1 rounded-lg">
-                    <button
-                      onClick={() => updateQuantity(item.id, -1)}
-                      className="text-gray-600 font-bold px-1"
-                    >
-                      -
-                    </button>
+                    <button onClick={() => updateQuantity(item.id, -1)} className="font-bold px-1 text-gray-600 hover:text-black">-</button>
                     <span className="font-bold text-xs">{item.quantity}</span>
-                    <button
-                      onClick={() => updateQuantity(item.id, 1)}
-                      className="text-gray-600 font-bold px-1"
-                    >
-                      +
-                    </button>
+                    <button onClick={() => updateQuantity(item.id, 1)} className="font-bold px-1 text-gray-600 hover:text-black">+</button>
                   </div>
                 </div>
               ))}
             </div>
 
-            {/* 🎟️ PROMO CODE / COUPON SECTION */}
-            <div className="p-3 my-4 bg-gray-50 rounded-xl border border-gray-200">
-              <p className="text-[10px] font-bold text-gray-500 mb-1.5 uppercase">Have a Promo Code?</p>
-
-              {!appliedCoupon ? (
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    placeholder="e.g. MUNCH50"
-                    value={couponCode}
-                    onChange={(e) => setCouponCode(e.target.value)}
-                    className="border border-gray-300 rounded-lg px-2.5 py-1 text-xs uppercase flex-1 focus:outline-amber-800 bg-white font-semibold"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleApplyCoupon}
-                    className="bg-amber-800 text-white font-bold text-xs px-3 py-1 rounded-lg hover:bg-amber-900 transition"
-                  >
-                    Apply
-                  </button>
-                </div>
-              ) : (
-                <div className="flex justify-between items-center text-xs font-bold text-green-700 bg-green-50 p-2 rounded-lg border border-green-200">
-                  <span>🎟️ '{appliedCoupon.code}' Applied</span>
-                  <div className="flex items-center gap-1">
-                    <span>-₹{appliedCoupon.discount}</span>
-                    <button
-                      onClick={() => setAppliedCoupon(null)}
-                      className="text-red-500 text-[10px] underline ml-2 hover:text-red-700"
-                    >
-                      Remove
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {couponError && <p className="text-red-500 text-[10px] mt-1 font-medium">{couponError}</p>}
-              {couponSuccess && !appliedCoupon && <p className="text-green-600 text-[10px] mt-1 font-bold">{couponSuccess}</p>}
-            </div>
-
             {/* Customer Details Form */}
             <div className="mt-4 pt-4 border-t space-y-3">
-              <h3 className="text-xs font-bold text-gray-500 uppercase">Customer Details</h3>
+              <input
+                type="text"
+                placeholder="Enter your name"
+                value={customerName}
+                onChange={(e) => setCustomerName(e.target.value)}
+                className="w-full border rounded-xl px-3 py-2 text-xs focus:outline-amber-800"
+              />
+              <input
+                type="text"
+                placeholder="Enter mobile number"
+                value={phoneNumber}
+                onChange={(e) => setPhoneNumber(e.target.value)}
+                className="w-full border rounded-xl px-3 py-2 text-xs focus:outline-amber-800"
+              />
+            </div>
 
-              <div>
+            {/* Coupon Code Section */}
+            <div className="mt-4 pt-3 border-t">
+              <p className="text-xs font-bold text-gray-700 mb-2">Have a Coupon?</p>
+              <div className="flex gap-2">
                 <input
                   type="text"
-                  placeholder="Enter your name"
-                  value={customerName}
-                  onChange={(e) => setCustomerName(e.target.value)}
-                  className="w-full border rounded-xl px-3 py-2 text-xs focus:outline-amber-800"
+                  placeholder="Coupon code"
+                  value={couponInput}
+                  onChange={(e) => setCouponInput(e.target.value)}
+                  className="flex-1 border rounded-xl px-3 py-1.5 text-xs uppercase focus:outline-amber-800"
                 />
+                <button
+                  onClick={handleApplyCoupon}
+                  className="bg-amber-800 text-white px-3 py-1.5 rounded-xl font-bold text-xs hover:bg-amber-900"
+                >
+                  Apply
+                </button>
               </div>
-
-              <div>
-                <input
-                  type="text"
-                  placeholder="Enter mobile number"
-                  value={phoneNumber}
-                  onChange={(e) => setPhoneNumber(e.target.value)}
-                  className="w-full border rounded-xl px-3 py-2 text-xs focus:outline-amber-800"
-                />
-              </div>
+              {appliedCoupon && (
+                <p className="text-xs text-green-600 font-bold mt-1.5">
+                  ✓ '{appliedCoupon.code}' Applied (₹{appliedCoupon.discount} Off)
+                </p>
+              )}
+              {couponError && (
+                <p className="text-xs text-red-500 font-semibold mt-1.5">{couponError}</p>
+              )}
             </div>
           </div>
 
-          {/* Bill Summary & Place Order Button */}
+          {/* Pricing & Checkout */}
           <div className="mt-6 pt-4 border-t">
             {appliedCoupon && (
-              <div className="flex justify-between text-xs text-green-600 font-bold mb-1">
+              <div className="flex justify-between text-xs text-gray-500 mb-1">
                 <span>Discount:</span>
-                <span>-₹{discount}</span>
+                <span className="text-green-600 font-semibold">-₹{discount}</span>
               </div>
             )}
-
-            <div className="flex justify-between font-bold text-gray-800 text-base mb-4">
+            <div className="flex justify-between font-bold text-gray-800 mb-4">
               <span>Total Amount:</span>
               <span className="text-green-600">₹{finalTotal}</span>
             </div>
-
             <button
               onClick={handlePlaceOrder}
-              disabled={isSubmitting || cart.length === 0}
-              className="w-full bg-amber-800 hover:bg-amber-900 text-white font-bold py-3 rounded-xl shadow-md transition disabled:opacity-50 text-sm"
+              disabled={isSubmitting}
+              className="w-full bg-amber-800 hover:bg-amber-900 text-white font-bold py-3 rounded-xl shadow-md text-sm transition"
             >
               {isSubmitting ? 'Placing Order...' : 'Place Order'}
             </button>
